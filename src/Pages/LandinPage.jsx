@@ -36,15 +36,22 @@ const FoodDeliveryApp = ({
     loadingIndicator(true);
 
     try {
-      const response = await fetchMenusByVendorForCustomer(vendor, page, minPrice, maxPrice);
+      const response = await fetchMenusByVendorForCustomer(
+        vendor,
+        page,
+        minPrice,
+        maxPrice
+      );
       const fetchedMenus = response.menu_items;
 
       setTotalPages(response.pagination.totalPages);
-      
+
       // Remove duplicates before setting state
       setMenus((prevMenus) => {
         const existingIds = new Set(prevMenus.map((menu) => menu.item_id));
-        const newMenus = fetchedMenus.filter((menu) => !existingIds.has(menu.item_id));
+        const newMenus = fetchedMenus.filter(
+          (menu) => !existingIds.has(menu.item_id)
+        );
         return [...prevMenus, ...newMenus]; // Combine previous and new menus
       });
     } catch (error) {
@@ -179,7 +186,7 @@ const FoodDeliveryApp = ({
           value={searchText}
         />
         <span
-          className="material-icons"
+          className="material-icons cursor-pointer"
           onClick={() => setOpenFilter(!openFilter)}
         >
           tune
@@ -213,12 +220,13 @@ const FoodDeliveryApp = ({
               }
               value={maxPrice || ""}
             />
-            <div
+            <a
+              href="#menu"
               onClick={loadMenus}
               className="py-2 px-4 bg-orange-500 active:bg-orange-300 text-white rounded-md flex flex-row items-center justify-center cursor-pointer"
             >
               Filter
-            </div>
+            </a>
           </div>
         </div>
       )}
@@ -231,7 +239,7 @@ const FoodDeliveryApp = ({
             Highest rating in town
           </p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {isLoading ? (
             <div className="col-span-4 text-center text-gray-600 mt-4 dark:text-gray-400">
               Loading...
@@ -258,7 +266,7 @@ const FoodDeliveryApp = ({
                       effect="blur"
                       src={`${process.env.REACT_APP_IMAGE_URL}${restaurant.image_url}`}
                       alt={restaurant.item_name}
-                      className="w-full h-40 object-cover transition-transform duration-300 hover:scale-110"
+                      className="w-96 h-40 object-cover transition-transform duration-300 hover:scale-110"
                     />
                     {restaurant.discount && (
                       <span className="absolute top-2 left-2 bg-orange-500 text-white text-sm px-2 py-1 rounded">
@@ -287,7 +295,9 @@ const FoodDeliveryApp = ({
                       </span>
                     )}
                     <div className="flex items-center justify-between mt-2">
-                      {cart.some((item) => item.item_id === restaurant.item_id) && (
+                      {cart.some(
+                        (item) => item.item_id === restaurant.item_id
+                      ) && (
                         <>
                           <button
                             onClick={(e) => {
