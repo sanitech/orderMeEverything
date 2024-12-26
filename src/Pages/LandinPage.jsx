@@ -3,6 +3,8 @@ import { useParams } from "react-router-dom";
 import { fetchMenusByVendorForCustomer } from "../utils/fetchMenusByVendor";
 import CategoryCustomerSide from "../components/Category/CategoryCustomerSide";
 import { LazyLoadImage } from "react-lazy-load-image-component";
+import Skeleton from "react-loading-skeleton";
+import "react-loading-skeleton/dist/skeleton.css"; // Make sure to import skeleton styles
 
 const FoodDeliveryApp = ({
   cart,
@@ -23,6 +25,7 @@ const FoodDeliveryApp = ({
   const [minPrice, setMinPrice] = useState(null);
   const [maxPrice, setMaxPrice] = useState(null);
   const [openFilter, setOpenFilter] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   // Load menus based on vendor, page number, and price range
   const loadMenus = useCallback(async () => {
@@ -164,6 +167,16 @@ const FoodDeliveryApp = ({
     });
   }, [menus, category, searchText, minPrice, maxPrice]);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (event) => setIsDarkMode(event.matches);
+
+    setIsDarkMode(mediaQuery.matches);
+    mediaQuery.addEventListener("change", handleChange);
+
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
+
   return (
     <div className="bg-gray-50 min-h-screen dark:bg-gray-900 dark:text-white">
       {/* Search and Filter UI */}
@@ -241,9 +254,15 @@ const FoodDeliveryApp = ({
         </div>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {isLoading ? (
-            <div className="col-span-4 text-center text-gray-600 mt-4 dark:text-gray-400">
-              Loading...
-            </div>
+            // Skeleton loaders to show while loading
+            [...Array(6)].map((_, index) => (
+              <Skeleton
+                key={index}
+                baseColor={isDarkMode ? "rgb(31, 41, 55)" : "#e0e0e0"}
+                height={200}
+                className="rounded-lg"
+              />
+            ))
           ) : filteredItems.length === 0 ? (
             <div className="col-span-4 text-center text-gray-600 mt-4 dark:text-gray-400">
               No menu items found.
@@ -338,6 +357,7 @@ const FoodDeliveryApp = ({
           </div>
         )}
       </div>
+
       {cart.length > 0 && (
         <div className="px-2 py-4 bg-gray-100 dark:bg-gray-950 rounded-md flex flex-row justify-between items-center fixed bottom-0 w-full">
           <div style={{ flexDirection: "column" }}>
