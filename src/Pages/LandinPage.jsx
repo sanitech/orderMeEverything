@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { fetchMenusByVendorForCustomer } from "../utils/fetchMenusByVendor";
 import CategoryCustomerSide from "../components/Category/CategoryCustomerSide";
@@ -20,50 +20,63 @@ const FoodDeliveryApp = ({
   const [searchText, setSearchText] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [minPrice, setMinPrice] = useState(null); // Initialize to null
-  const [maxPrice, setMaxPrice] = useState(null); // Initialize to null
-  const [openFilter, setOpenFilter] = useState(false); // Initialize to false
-  // Load menus based on vendor and page number
-  const loadMenus = async () => {
+  const [minPrice, setMinPrice] = useState(null);
+  const [maxPrice, setMaxPrice] = useState(null);
+  const [openFilter, setOpenFilter] = useState(false);
+
+  // Load menus based on vendor, page number, and price range
+  const loadMenus = useCallback(async () => {
     if (!vendor) {
       setErrorMessage("Vendor not available");
       return;
     }
 
-    setIsLoadingMore(true);
+    // Set loading state depending on reset
+    const loadingIndicator = page === 1 ? setIsLoading : setIsLoadingMore;
+    loadingIndicator(true);
 
     try {
-      const response = await fetchMenusByVendorForCustomer(
-        vendor,
-        page,
-        minPrice,
-        maxPrice
-      );
+      const response = await fetchMenusByVendorForCustomer(vendor, page, minPrice, maxPrice);
       const fetchedMenus = response.menu_items;
 
       setTotalPages(response.pagination.totalPages);
-
+      
       // Remove duplicates before setting state
       setMenus((prevMenus) => {
         const existingIds = new Set(prevMenus.map((menu) => menu.item_id));
-        const newMenus = fetchedMenus.filter(
-          (menu) => !existingIds.has(menu.item_id)
-        );
-        return [...prevMenus, ...newMenus];
+        const newMenus = fetchedMenus.filter((menu) => !existingIds.has(menu.item_id));
+        return [...prevMenus, ...newMenus]; // Combine previous and new menus
       });
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
+      // Reset loading states
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  };
+  }, [vendor, page, minPrice, maxPrice]);
 
-  // Use useEffect to load menus when vendor, minPrice, maxPrice, or page changes
+  // Load menus when vendor, minPrice, maxPrice, or page changes
   useEffect(() => {
-    setMenus([]); // Reset menus when filters change
-    loadMenus();
-  }, [vendor, minPrice, maxPrice, page]); // Adding minPrice and maxPrice to the dependencies
+    loadMenus(); // Load the items
+  }, [vendor, minPrice, maxPrice, page, loadMenus]);
+
+  // Scroll event to load more menus when reaching the bottom of the page
+  useEffect(() => {
+    const handleScroll = () => {
+      const isBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 100;
+
+      if (isBottom && !isLoadingMore && page < totalPages) {
+        console.log("Loading more items...");
+        setPage((prevPage) => prevPage + 1); // Load the next page
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll); // Attach event listener
+    return () => window.removeEventListener("scroll", handleScroll); // Cleanup listener
+  }, [isLoadingMore, page, totalPages]); // Dependency array
 
   // Handle ordering items - avoids duplicates
   const handleOrder = (id) => {
@@ -174,7 +187,7 @@ const FoodDeliveryApp = ({
       </div>
 
       {openFilter && (
-        <div className="flex flex-col transition-all duration-75 p-4 mb-2  bg-white dark:bg-gray-900 rounded-md shadow-md">
+        <div className="flex flex-col transition-all duration-75 p-4 mb-2 bg-white dark:bg-gray-900 rounded-md shadow-md">
           <p className="text-gray-700 dark:text-gray-200 mb-2 font-semibold text-lg">
             Filter by Your Budget
           </p>
@@ -184,7 +197,7 @@ const FoodDeliveryApp = ({
           <div className="flex transition-all duration-75 items-center justify-between gap-4 bg-white dark:bg-gray-900 rounded-md shadow-md">
             <input
               className="w-full bg-gray-100 dark:bg-gray-600 border-none rounded-md outline-none py-2 pl-4 focus:ring-0 text-gray-700 dark:text-gray-200"
-              type="number" // Change to number input for price
+              type="number"
               placeholder="Min"
               onChange={(e) =>
                 setMinPrice(e.target.value ? Number(e.target.value) : null)
@@ -193,19 +206,19 @@ const FoodDeliveryApp = ({
             />
             <input
               className="w-full bg-gray-100 border-none dark:bg-gray-600 rounded-md outline-none py-2 pl-4 focus:ring-0 text-gray-700 dark:text-gray-200"
-              type="number" // Change to number input for price
+              type="number"
               placeholder="Max"
               onChange={(e) =>
                 setMaxPrice(e.target.value ? Number(e.target.value) : null)
               }
               value={maxPrice || ""}
             />
-            <a
-              href="#menu"
+            <div
+              onClick={loadMenus}
               className="py-2 px-4 bg-orange-500 active:bg-orange-300 text-white rounded-md flex flex-row items-center justify-center cursor-pointer"
             >
               Filter
-            </a>
+            </div>
           </div>
         </div>
       )}
@@ -245,7 +258,7 @@ const FoodDeliveryApp = ({
                       effect="blur"
                       src={`${process.env.REACT_APP_IMAGE_URL}${restaurant.image_url}`}
                       alt={restaurant.item_name}
-                      className="w-96 h-40 object-cover transition-transform duration-300 hover:scale-110"
+                      className="w-full h-40 object-cover transition-transform duration-300 hover:scale-110"
                     />
                     {restaurant.discount && (
                       <span className="absolute top-2 left-2 bg-orange-500 text-white text-sm px-2 py-1 rounded">
@@ -274,9 +287,7 @@ const FoodDeliveryApp = ({
                       </span>
                     )}
                     <div className="flex items-center justify-between mt-2">
-                      {cart.some(
-                        (item) => item.item_id === restaurant.item_id
-                      ) && (
+                      {cart.some((item) => item.item_id === restaurant.item_id) && (
                         <>
                           <button
                             onClick={(e) => {
